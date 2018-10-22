@@ -46,7 +46,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
-import org.springframework.web.bind.annotation.RestController;
+import java.util.Arrays;
 
 /**
  *
@@ -67,10 +67,12 @@ public class HomePageController {
     private static final String APPLICATION_NAME = "Assignment Project";
     private static HttpTransport HTTP_TRANSPORT = new NetHttpTransport();//Httptransport is used by the google api in order to make rest api calls
     private static JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();//JsonFactory  is used to serialize and deserialize the responses
-    private static final List<String> SCOPES = Collections.singletonList(DriveScopes.DRIVE);//Drive Scope 
-    private static final String USER_IDENTIFIER_KEY = "MY_DUMMY";//Used as a identifier for user
-    private static final String DIR_FOR_DOWNLOADS = "D:\\download\\";
+    private static final List<String> SCOPES = Arrays.asList(DriveScopes.DRIVE);//Drive Scope 
+    private static final String USER_IDENTIFIER_KEY = "MY_DUMMY_USER";//Used as a identifier for user
 
+    private static final String UPLOAD_FILE_PATH = "C:\\Users\\Eesha chettri\\Downloads\\JashnBanquates\\src\\main\\webapp\\images";
+    private static final String DIR_FOR_DOWNLOADS = "D:\\download\\";
+    private static final java.io.File UPLOAD_FILE = new java.io.File(UPLOAD_FILE_PATH);
 
     GoogleAuthorizationCodeFlow flow;//It should be initialized only once when application is started
 
@@ -119,6 +121,7 @@ public class HomePageController {
     }
 
     @GetMapping("/downloadfile")
+
     public ResponseEntity downloadFile() throws Exception {
         Drive service = new Drive(HTTP_TRANSPORT, JSON_FACTORY, flow.loadCredential(USER_IDENTIFIER_KEY));
         flow.loadCredential(USER_IDENTIFIER_KEY).getAccessToken();
@@ -137,63 +140,37 @@ public class HomePageController {
                 String fname = file.getMimeType();
                 String ex = fname.substring(fname.lastIndexOf(".") + 1);
                 try {
-                    Drive.Files f = service.files();
+                    Files f = service.files();
                     HttpResponse httpResponse = null;
                     if (ex.contains("spreadsheet")) {
                         httpResponse = f
                                 .export(file.getId(),
                                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
                                 .executeMedia();
-                        if (file.getFileExtension() == null) {
-                            file.setName(file.getName() + ".xlsx");
-                        }
 
                     } else if (ex.contains("document")) {
-                        if(file.getMimeType().equalsIgnoreCase("application/vnd.openxmlformats-officedocument.wordprocessingml.document")){
-                        file.setMimeType("application/vnd.google-apps.document");
                         httpResponse = f
-                                .get(file.getId())
-                                .executeMedia();                       
-                        }else{
-                        httpResponse = f
-                                .export(file.getId(),"application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-                                .executeMedia(); 
-                        
-                        }
-                        
-                        if (file.getFileExtension() == null) {
-                            file.setName(file.getName() + ".docx");
-                        }
-
-                    }else if (ex.contains("presentation")) {
+                                .export(file.getId(),
+                                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                                .executeMedia();
+                    } else if (ex.contains("presentation")) {
                         httpResponse = f
                                 .export(file.getId(),
                                         "application/vnd.openxmlformats-officedocument.presentationml.presentation")
                                 .executeMedia();
-                        if (file.getFileExtension() == null) {
-                            file.setName(file.getName() + ".pptx");
-                        }
 
-                    } else if (ex.contains("folder")) {
-                        httpResponse = f
-                                .export(file.getId(),
-                                        "application/vnd.google-apps.folder")
-                                .executeMedia();
-                        if (file.getFileExtension() == null) {
-                            file.setName(file.getName() + ".zip");
-                        }
                     } else if (ex.contains("pdf")
                             || ex.contains("jpg")
                             || ex.contains("png")) {
 
-                        Drive.Files.Get get = f.get(file.getId());
+                        Get get = f.get(file.getId());
                         httpResponse = get.executeMedia();
 
                     }
                     if (null != httpResponse) {
                         InputStream instream = httpResponse.getContent();
                         FileOutputStream output = new FileOutputStream(
-                                DIR_FOR_DOWNLOADS + file.getName());
+                                DIR_FOR_DOWNLOADS+file.getName());
                         try {
                             int l;
                             byte[] tmp = new byte[2048];
@@ -206,13 +183,11 @@ public class HomePageController {
                         }
                     }
                 } catch (IOException e) {
-                    System.err.println(e.getMessage());
-                    return new ResponseEntity("Download Failed : " + DIR_FOR_DOWNLOADS, HttpStatus.BAD_REQUEST);
                 }
             }
         }
 
-        return new ResponseEntity("Files And Folders Downloaded To folder: " + DIR_FOR_DOWNLOADS, HttpStatus.OK);
+        return new ResponseEntity(result.getFiles(), HttpStatus.OK);
     }
 
     /**
